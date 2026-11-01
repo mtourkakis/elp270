@@ -58,6 +58,8 @@ canvas.sig{width:100%;height:160px;border:2px dashed #9fb3cf;border-radius:12px;
 textarea.link{font-size:13px;height:84px;margin-bottom:10px}
 .foot{text-align:center;color:var(--mut);font-size:12.5px}.foot a{color:var(--b2)}
 .intro p{margin:4px 0}
+.fixbar{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.card.fix{background:#fff6e6;border:1px solid #f3c27a}.note{background:#fff;border-left:3px solid var(--or);padding:8px 10px;border-radius:6px;font-weight:600;white-space:pre-wrap}
 .sigimg{max-width:100%;max-height:120px;display:block;border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff}
 .lock{background:#eef4ff;border:1px solid #c5d6f5;color:#1d3f7a;border-radius:10px;padding:8px 10px;font-size:13.5px;margin:0 0 10px}
 input:disabled,textarea:disabled,select:disabled{background:#f1f3f6;color:#334;opacity:1;-webkit-text-fill-color:#334}
@@ -365,12 +367,13 @@ function parseLink() {
   const m = /(?:^|&)c=([^&]+)/.exec(h);
   if (m) { try { return JSON.parse(unb64u(m[1])); } catch (e) { return { bad: true }; } }
   const p = h.split('~'); if (p.length < 2 || !/^[a-z0-9]{6,}$/i.test(p[0])) return { bad: true };
-  try { return { id: p[0], ex: decodeURIComponent(p[1]).replace(/_/g, ' '), mail: p[2] ? decodeURIComponent(p[2]) : '' }; } catch (e) { return { bad: true }; }
+  try { return { id: p[0], ex: decodeURIComponent(p[1]).replace(/_/g, ' '), mail: p[2] ? decodeURIComponent(p[2]) : '', note: p[3] ? decodeURIComponent(p[3]) : '' }; } catch (e) { return { bad: true }; }
 }
 
 /* ===== Candidate mode ===== */
 function candidateView(inv) {
   if (inv.bad) return view('<div class="card"><h2>Invalid link</h2><p>Please ask your examiner to send the link again.</p></div>');
+  const hadDraft = !!load(LS_DRAFT + inv.id, null);
   let d = load(LS_DRAFT + inv.id, null) || { id: inv.id, v: 1, inv, cand: { lab1: inv.lab || '', surname: inv.sn || '', first: inv.fn || '', email: inv.em || '', apply: {} }, assess: [{}, {}, {}] };
   let lang = load('elp270_lang', 'en');
   const persist = () => { const copy = JSON.parse(JSON.stringify(d)); save(LS_DRAFT + inv.id, copy); };
@@ -381,12 +384,17 @@ function candidateView(inv) {
   <div class="card intro"><p>Examiner: <b>${esc(inv.ex || '')}</b>${inv.no ? ' · ' + esc(inv.no) : ''}</p>
   <p>Please complete sections 1–5 and sign the declaration, then press <b>Send to examiner</b>. Your answers are saved on this device while you type. Sections 6–7 are completed by the examiner.</p>
   <p class="hint">Συμπληρώστε τις ενότητες 1–5, υπογράψτε και πατήστε «Send to examiner». Οι ενότητες 6–7 συμπληρώνονται από τον εξεταστή.</p></div>
+  ${inv.note ? `<div class="card fix"><h2>↩️ Correction requested / Ζητείται διόρθωση</h2><p class="note">${esc(inv.note)}</p>
+    <p class="hint">Please correct, check your signature and press <b>Send to examiner</b> again.</p>
+    ${hadDraft ? '' : '<p class="hint">Your previous answers are not on this device. Load the PDF you sent before to fill them in automatically:</p><button class="btn" id="ldp">📄 Load my previous PDF</button><input type="file" id="ldf" accept="application/pdf,.pdf" hidden>'}</div>` : ''}
   <form id="cf" onsubmit="return false">${candidateSections(d, lang)}</form>
   <div class="card"><div id="errs"></div>
    <button class="btn big" id="send">Send to examiner / Αποστολή στον εξεταστή</button>
    <button class="btn ghost" id="prev">Preview PDF</button>
    <p class="hint" id="after"></p></div>`);
   wireCandidate($('#cf'), d);
+  if ($('#ldp')) { $('#ldp').onclick = () => $('#ldf').click(); $('#ldf').onchange = async e => { const f = e.target.files[0]; if (!f) return;
+    try { const old = await readPdfData(new Uint8Array(await f.arrayBuffer())); if (!old?.cand) return alert('This PDF does not contain form data.'); d.cand = old.cand; persist(); candidateView(inv); } catch (err) { alert('Could not read the PDF.'); } }; }
   $('#lng').onclick = () => { save('elp270_lang', lang === 'el' ? 'en' : 'el'); persist(); candidateView(inv); };
   $('#prev').onclick = async () => previewPdf(await buildPdf(clean(d), false));
   $('#send').onclick = async () => {
