@@ -60,6 +60,7 @@ textarea.link{font-size:13px;height:84px;margin-bottom:10px}
 .intro p{margin:4px 0}
 .fixbar{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
 .card.fix{background:#fff6e6;border:1px solid #f3c27a}.note{background:#fff;border-left:3px solid var(--or);padding:8px 10px;border-radius:6px;font-weight:600;white-space:pre-wrap}
+.idsum{background:#f3f6fa;border-radius:10px;padding:10px 12px;font-weight:600}.idsum .bad{color:var(--bad)}
 .sigimg{max-width:100%;max-height:120px;display:block;border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff}
 .lock{background:#eef4ff;border:1px solid #c5d6f5;color:#1d3f7a;border-radius:10px;padding:8px 10px;font-size:13.5px;margin:0 0 10px}
 input:disabled,textarea:disabled,select:disabled{background:#f1f3f6;color:#334;opacity:1;-webkit-text-fill-color:#334}
@@ -197,7 +198,7 @@ async function buildPdf(d, embed) {
   for (let i = 0; i < 3; i++) {
     const a = d.assess?.[i]; if (!a) continue; const o = L.p2.off[i];
     HEADS.forEach(([k], j) => cell(p2, a[k], L.p2.cols[j], L.p2.cols[j + 1], L.p2.res[0] + o, L.p2.res[1] + o, 11));
-    const ov = overallOf(a); if (ov) text(p2, 'LEVEL ' + ov, L.p2.overall[0], L.p2.overall[1] + o, 566, 10);
+    const ov = overallOf(a); if (ov) cell(p2, ov, 497.0, 568.7, 365.4 + o, 398.8 + o, 14);
     if (a.comments) {
       const words = pdfSafe(a.comments).split(' '); const lines = []; let cur = '';
       for (const w of words) { const t = cur ? cur + ' ' + w : w; if (font.widthOfTextAtSize(t, 7.5) > L.p2.comm[2] - L.p2.comm[0]) { lines.push(cur); cur = w; } else cur = t; }
@@ -210,8 +211,9 @@ async function buildPdf(d, embed) {
   const fin = d.final || finalOf(d);
   if (fin) { const t = 'ICAO LEVEL ' + fin; p3.drawText(t, { x: L.p3.final[0], y: H - (L.p3.final[1] + L.p3.final[2]) / 2 - 5, size: 14, font, color: INK }); }
   const ex = d.exam || {};
-  if (ex.idType === 'dl') { tick(p3, L.p3.dl); text(p3, ex.idState, ...L.p3.dlState.slice(0, 2), L.p3.dlState[2]); text(p3, ex.idNo, L.p3.dlNo[0], L.p3.dlNo[1], L.p3.dlNo[2]); }
-  if (ex.idType === 'pp') { tick(p3, L.p3.pp); text(p3, ex.idState, L.p3.ppState[0], L.p3.ppState[1], L.p3.ppState[2]); text(p3, ex.idNo, L.p3.ppNo[0], L.p3.ppNo[1], L.p3.ppNo[2]); }
+  const idT = c.idType || ex.idType, idS = c.idState || ex.idState, idN = c.idNo || ex.idNo;
+  if (idT === 'dl') { tick(p3, L.p3.dl); text(p3, idS, L.p3.dlState[0], L.p3.dlState[1], L.p3.dlState[2]); text(p3, idN, L.p3.dlNo[0], L.p3.dlNo[1], L.p3.dlNo[2]); }
+  if (idT === 'pp') { tick(p3, L.p3.pp); text(p3, idS, L.p3.ppState[0], L.p3.ppState[1], L.p3.ppState[2]); text(p3, idN, L.p3.ppNo[0], L.p3.ppNo[1], L.p3.ppNo[2]); }
   await sig(p3, ex.sig, L.p3.sig);
   text(p3, ex.date, L.p3.date[0], L.p3.date[1], L.p3.date[2]);
   text(p3, ex.name, L.p3.exName[0], L.p3.exName[1], L.p3.exName[2]);
@@ -312,6 +314,9 @@ function candidateSections(d, lang) {
   <section class="card"><h2>5. Applicant's declaration * <small>Δήλωση αιτούντος</small></h2>
     <p class="decl">I hereby declare that the information given in this form is true and correct to the best of my knowledge and belief. I have presented the required photographic evidence of my identity.</p>
     <p class="hint">Note: It is an offence for a person to make, procure to be made, or assist in making any false representations for the purpose of procuring the issue, validation, extension or re-issue of a licence or rating.</p>
+    <p class="lbl">Photographic identification presented * <small class="hint">Ταυτότητα που θα επιδείξετε</small></p>
+    <div class="checks two"><label class="chk"><input type="radio" name="cidt" data-k="idType" value="pp" ${c.idType === 'pp' ? 'checked' : ''}> Passport / Διαβατήριο</label><label class="chk"><input type="radio" name="cidt" data-k="idType" value="dl" ${c.idType === 'dl' ? 'checked' : ''}> Driving licence / Δίπλωμα</label></div>
+    <div class="g2">${F('idState', 'State of issue *', 'Χώρα έκδοσης', 'class="up"')}${F('idNo', 'Document No. *', 'Αριθμός εγγράφου', 'class="up"')}</div>
     <label class="chk"><input type="checkbox" data-k="declare" ${c.declare ? 'checked' : ''}> I agree / Συμφωνώ</label>
     <p class="lbl">Applicant's signature – sign with your finger / Υπογραφή με το δάχτυλο</p>
     <div id="candSig"></div>
@@ -333,6 +338,7 @@ function candidateErrors(c) {
   if (!/^\S+@\S+\.\S+$/.test(c.email || '')) e.push('E-mail');
   if (!c.prevNone && !(c.prev || []).some(r => r && Object.values(r).some(Boolean))) e.push('Section 3 – fill in or tick NONE');
   if (!APPS.some(([k]) => c.apply?.[k])) e.push('Section 4 – select the examination');
+  if (!c.idType) e.push('Identification – Passport or Driving licence'); if (!c.idState) e.push('Identification – State of issue'); if (!c.idNo) e.push('Identification – Document No.');
   if (!c.declare) e.push('Declaration – tick "I agree"'); if (!c.sig) e.push('Signature');
   return e;
 }
