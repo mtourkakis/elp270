@@ -94,7 +94,7 @@ input:disabled,textarea:disabled,select:disabled{background:#f1f3f6;color:#334;o
 'use strict';
 const { PDFDocument, StandardFonts, rgb, PDFName, PDFHexString } = PDFLib;
 const H = 842.04;
-const APP_VER = '2.2';
+const APP_VER = '2.4';
 const INK = rgb(0.05, 0.1, 0.45);
 const LS_REC = 'elp270_records', LS_SET = 'elp270_settings', LS_DRAFT = 'elp270_cand_';
 
@@ -285,7 +285,7 @@ function get(obj, path) { return path.split('.').reduce((o, k) => o?.[k], obj); 
 
 function candidateSections(d, lang) {
   const c = d.cand; const g = k => esc(get(c, k) ?? '');
-  const F = (k, en, el, extra = '') => `<label class="f"><span>${en}${lang === 'el' && el ? ` <i>${el}</i>` : ''}</span><input data-k="${k}" value="${g(k)}" ${extra}></label>`;
+  const F = (k, en, el, extra = '') => `<label class="f"><span>${en}${(lang === 'el' || lang === 'ex') && el ? ` <i>${el}</i>` : ''}</span><input data-k="${k}" value="${g(k)}" ${extra}></label>`;
   const row = (prefix, keys, labels, i) => `<div class="tblrow"><b>${i + 1}</b>${keys.map((k, j) => `<label class="f"><span>${labels[j]}</span><input data-k="${prefix}.${i}.${k}" value="${g(prefix + '.' + i + '.' + k)}"></label>`).join('')}</div>`;
   return `
   <section class="card"><h2>1. Personal details <small>Προσωπικά στοιχεία</small></h2>
@@ -299,16 +299,17 @@ function candidateSections(d, lang) {
     <div class="g2">${F('addr2', 'Address (line 2) – City', 'Πόλη', 'class="up"')}${F('postcode', 'Postcode', 'Τ.Κ.', 'class="up" autocomplete="postal-code"')}</div>
     <div class="g2">${F('mobile', 'Mobile tel. no. *', 'Κινητό', 'type="tel" autocomplete="tel"')}${F('tel', 'Contact tel. no.', 'Σταθερό', 'type="tel"')}</div>
     <div class="g2">${F('email', 'E-mail *', '', 'type="email" autocomplete="email"')}${F('fax', 'Fax', '', 'type="tel"')}</div>
-    ${F('lab1', 'Language Assessment Body (L.A.B)', 'Φορέας αξιολόγησης', 'class="up"')}
+    ${lang === 'ex' ? F('lab1', 'Language Assessment Body (L.A.B) – από τις ρυθμίσεις', '', 'class="up" data-lab="1"') : ''}
   </section>
-  <section class="card"><h2>2. Flight crew licence(s) held <small>Άδειες (αν υπάρχουν)</small></h2>
+  <p class="hint opt24">Sections 2–4: fill in what you know – your examiner can complete them. / Ενότητες 2–4: συμπληρώστε ό,τι γνωρίζετε – ο εξεταστής μπορεί να τις συμπληρώσει.</p>
+  <section class="card" data-sec="2"><h2>2. Flight crew licence(s) held <small>Άδειες (αν υπάρχουν)</small></h2>
     ${[0, 1].map(i => row('lic', ['state', 'type', 'ratings', 'no', 'expiry'], ['State of issue', 'Type & category (e.g. PPL(A))', 'Class/Type/IR ratings', 'Licence no.', 'Expiry date'], i)).join('')}
   </section>
-  <section class="card"><h2>3. Previous ELP examination(s) <small>Προηγούμενες εξετάσεις ELP</small></h2>
+  <section class="card" data-sec="3"><h2>3. Previous ELP examination(s) <small>Προηγούμενες εξετάσεις ELP</small></h2>
     <label class="chk"><input type="checkbox" data-k="prevNone" ${c.prevNone ? 'checked' : ''}> NONE – no previous ELP test / Καμία προηγούμενη</label>
     <div id="prevRows" ${c.prevNone ? 'hidden' : ''}>${[0, 1].map(i => row('prev', ['date', 'state', 'examiner', 'authNo', 'result'], ['Date of test', 'State where tested', "Examiner's name", "Examiner's auth. no.", 'Result (ICAO Level 1–6)'], i)).join('')}</div>
   </section>
-  <section class="card"><h2>4. Application * <small>Αίτηση – επιλέξτε</small></h2>
+  <section class="card" data-sec="4"><h2>4. Application <small>Αίτηση – επιλέξτε</small></h2>
     <p class="hint">I am applying for the PART-FCL English Language Proficiency (ELP) ground examination indicated below:</p>
     <div class="checks">${APPS.map(([k, l]) => `<label class="chk"><input type="checkbox" data-k="apply.${k}" ${c.apply?.[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
     <div id="otherBox" ${c.apply?.other ? '' : 'hidden'}>${F('otherSpec', 'Other – specify', 'Άλλο', 'class="up"')}</div>
@@ -335,13 +336,13 @@ function wireCandidate(root, d) {
   const oth = root.querySelector('[data-k="apply.other"]'); oth.addEventListener('change', () => { $('#otherBox', root).hidden = !oth.checked; });
   sigPad($('#candSig', root), c.sig, v => { c.sig = v; if (v && !c.sigDate) { c.sigDate = today(); const el = root.querySelector('[data-k="sigDate"]'); if (el) el.value = c.sigDate; } c.__changed && c.__changed(); });
 }
-function candidateErrors(c) {
+function candidateErrors(c, full) {
   const e = [];
   if (!c.surname) e.push('Surname'); if (!c.first) e.push('First name'); if (!/^\d{2}\/\d{2}\/\d{4}$/.test(c.dob || '')) e.push('Date of birth (dd/mm/yyyy)');
   if (!c.nationality) e.push('Nationality'); if (!c.addr1) e.push('Permanent address'); if (!c.mobile) e.push('Mobile tel.');
   if (!/^\S+@\S+\.\S+$/.test(c.email || '')) e.push('E-mail');
-  if (!c.prevNone && !(c.prev || []).some(r => r && Object.values(r).some(Boolean))) e.push('Section 3 – fill in or tick NONE');
-  if (!APPS.some(([k]) => c.apply?.[k])) e.push('Section 4 – select the examination');
+  if (full && !c.prevNone && !(c.prev || []).some(r => r && Object.values(r).some(Boolean))) e.push('Section 3 – fill in or tick NONE');
+  if (full && !APPS.some(([k]) => c.apply?.[k])) e.push('Section 4 – select the examination');
   if (!c.idType) e.push('Section 7 – Passport or Driving licence'); if (!c.idState) e.push('Section 7 – State of issue'); if (!c.idNo) e.push('Section 7 – Passport number');
   if (!c.declare) e.push('Declaration – tick "I agree"'); if (!c.sig) e.push('Signature');
   return e;
