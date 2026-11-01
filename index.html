@@ -379,19 +379,18 @@ function candidateView(inv) {
   <header class="top cand"><div><b>PEL-FCL 270</b><span>Application for an English Language Proficiency (ELP) ground examination</span></div>
    <button class="btn small ghost" id="lng">${lang === 'el' ? 'EN only' : 'EN + ΕΛ'}</button></header>
   <div class="card intro"><p>Examiner: <b>${esc(inv.ex || '')}</b>${inv.no ? ' · ' + esc(inv.no) : ''}</p>
-  <p>Please complete sections 1–6 (applicant details, declaration with signature and the assessors' evaluation), then press <b>Send to examiner</b>. Your answers are saved on this device while you type. Section 7 is completed by the examiner.</p>
-  <p class="hint">Συμπληρώστε τις ενότητες 1–6, υπογράψτε και πατήστε «Send to examiner». Η ενότητα 7 συμπληρώνεται από τον εξεταστή.</p></div>
-  <form id="cf" onsubmit="return false">${candidateSections(d, lang)}${assessSections(d)}</form>
+  <p>Please complete sections 1–5 and sign the declaration, then press <b>Send to examiner</b>. Your answers are saved on this device while you type. Sections 6–7 are completed by the examiner.</p>
+  <p class="hint">Συμπληρώστε τις ενότητες 1–5, υπογράψτε και πατήστε «Send to examiner». Οι ενότητες 6–7 συμπληρώνονται από τον εξεταστή.</p></div>
+  <form id="cf" onsubmit="return false">${candidateSections(d, lang)}</form>
   <div class="card"><div id="errs"></div>
    <button class="btn big" id="send">Send to examiner / Αποστολή στον εξεταστή</button>
    <button class="btn ghost" id="prev">Preview PDF</button>
    <p class="hint" id="after"></p></div>`);
   wireCandidate($('#cf'), d);
-  wireAssess($('#cf'), d, () => d.cand.__changed());
   $('#lng').onclick = () => { save('elp270_lang', lang === 'el' ? 'en' : 'el'); persist(); candidateView(inv); };
   $('#prev').onclick = async () => previewPdf(await buildPdf(clean(d), false));
   $('#send').onclick = async () => {
-    const er = candidateErrors(d.cand).concat(assessErrors(d));
+    const er = candidateErrors(d.cand);
     if (er.length) { $('#errs').innerHTML = '<div class="err"><b>Please complete:</b><ul>' + er.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>'; $('#errs').scrollIntoView({ behavior: 'smooth' }); return; }
     $('#errs').innerHTML = '';
     d.status = 'returned'; d.candSubmitted = new Date().toISOString(); persist();
